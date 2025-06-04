@@ -15,6 +15,12 @@ const sequelize = new Sequelize(
       min: 0,
       acquire: 30000,
       idle: 10000
+    },
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false
     }
   }
 );
@@ -25,6 +31,9 @@ const testConnection = async () => {
     console.log('Database connection has been established successfully.');
   } catch (error) {
     console.error('Unable to connect to the database:', error);
+    // Wait for 5 seconds before retrying
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    return testConnection();
   }
 };
 

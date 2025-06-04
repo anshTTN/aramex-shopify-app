@@ -12,7 +12,7 @@ exports.appProxy = async (req, res) => {
   try {
     const store = await Store.findOne({ 
       where: { shop },
-      attributes: ['is_wms_authenticated', 'accessToken']
+      attributes: ['wms_jwt_token', 'accessToken']
     });
 
     if (!store) {
@@ -25,8 +25,8 @@ exports.appProxy = async (req, res) => {
       return res.status(401).send('Store not authenticated with Shopify');
     }
 
-    // Check if WMS is already authenticated
-    const isWMSAuthenticated = store.is_wms_authenticated;
+    // Check if WMS is authenticated by checking for JWT token
+    const isWMSAuthenticated = !!store.wms_jwt_token;
 
     res.send(`
       <!DOCTYPE html>
@@ -71,7 +71,7 @@ exports.appProxy = async (req, res) => {
                             </div>
 
                             <div class="action" style="margin-bottom: 15px;">
-                                <button type="submit" class="button button-primary">Continue</button>
+                                <button type="submit" class="button button-primary" onCLick="formSubmit()" >Continue</button>
                             </div>
 
                             <div class="legal-msg">Having trouble signing in? Connect with <strong>Aramex</strong> Account Manager</div>
@@ -82,8 +82,9 @@ exports.appProxy = async (req, res) => {
                   <div class="Polaris-Card">
                     <div class="Polaris-Card__Section">
                       <p>WMS is successfully authenticated!</p>
-                      <button id="syncProducts" class="Polaris-Button Polaris-Button--primary">Sync Products</button>
-                    </div>
+                      <a href=http://23.20.82.222:3000/login?token=${encodeURIComponent(store.wms_jwt_token)}" target="_blank>
+                      <button id="unifiedPortal" class="Polaris-Button Polaris-Button--primary" onCLick="openUnifiedPortal()">Open Unified Portal</button>
+                    </a></div>
                   </div>
                 `}
           </div>
@@ -96,8 +97,11 @@ exports.appProxy = async (req, res) => {
 
             const client = createAppBridgeClient(app);
 
+
+
+
             // Handle WMS authentication form submission
-            document.addEventListener('DOMContentLoaded', function() {
+             function formSubmit() {
               const wmsAuthForm = document.getElementById('wmsAuthForm');
               if (wmsAuthForm) {
                 console.log('Form found, adding submit listener');
@@ -150,7 +154,7 @@ exports.appProxy = async (req, res) => {
               } else {
                 console.log('Form not found');
               }
-            });
+            };
 
             // Handle product sync button
             const syncButton = document.getElementById('syncProducts');

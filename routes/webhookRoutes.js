@@ -15,7 +15,8 @@ const verifyWebhook = (req, res, next) => {
       hmac,
       topic,
       shop,
-      contentType: req.headers['content-type']
+      contentType: req.headers['content-type'],
+      allHeaders: JSON.stringify(req.headers, null, 2)
     });
 
     if (!hmac || !topic || !shop) {
@@ -32,12 +33,19 @@ const verifyWebhook = (req, res, next) => {
 
     // Convert raw body to string if it's a buffer
     const rawBodyString = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody;
+    console.log('Raw body:', rawBodyString);
 
     // Verify HMAC
     const hash = crypto
       .createHmac('sha256', process.env.SHOPIFY_API_SECRET)
       .update(rawBodyString)
       .digest('base64');
+
+    console.log('HMAC verification:', {
+      received: hmac,
+      calculated: hash,
+      matches: hash === hmac
+    });
 
     if (hash !== hmac) {
       console.error('Invalid webhook signature:', {
@@ -51,7 +59,7 @@ const verifyWebhook = (req, res, next) => {
     let data;
     try {
       data = JSON.parse(rawBodyString);
-      console.log('Successfully parsed webhook body');
+      console.log('Successfully parsed webhook body:', JSON.stringify(data, null, 2));
     } catch (error) {
       console.error('Error parsing webhook body:', error);
       return res.status(400).send('Invalid JSON body');
@@ -65,6 +73,7 @@ const verifyWebhook = (req, res, next) => {
     next();
   } catch (error) {
     console.error('Webhook verification error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).send('Error verifying webhook');
   }
 };
@@ -80,6 +89,9 @@ router.use(verifyWebhook);
 
 // Order webhooks
 router.post('/orders', webhookController.handleOrderWebhook, webhookErrorHandler);
+
+// App uninstall webhook
+router.post('/app/uninstalled', webhookController.handleAppUninstalled, webhookErrorHandler);
 
 // Export the router
 module.exports = router; 

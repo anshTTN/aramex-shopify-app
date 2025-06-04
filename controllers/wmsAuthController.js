@@ -18,35 +18,36 @@ console.log(req.body,'sdfdsdsfsdfd')
     }
 
     // Call your external API to verify authentication
-    const isAuthenticated = await verifyWMSAuthentication({
-
-        
-            "plugin_username":"",
-            "plugin_password":"",
-            "store_name":shop,
-            "store_url":`${shop}.shopify.com`,
-            "facility": wms_store_key,
-            "store_id":wms_facility_id,
-            "SSA_Login":wms_SSA_login,
-            "SSA_Password":wms_SSA_password,
-            "auth":true
-        
+    const authResponse = await verifyWMSAuthentication({
+      "plugin_username":"",
+      "plugin_password":"",
+      "store_name":shop,
+      "store_url":`${shop}.shopify.com`,
+      "facility": wms_store_key,
+      "store_id":wms_facility_id,
+      "SSA_Login":wms_SSA_login,
+      "SSA_Password":wms_SSA_password,
+      "auth":true
     });
 
-    if (!isAuthenticated || isAuthenticated?.status==='FAILURE') {
+    if (!authResponse || authResponse?.status === 'FAILURE') {
       return res.status(401).json({ error: 'Authentication failed! Try again.' });
     }
 
-    // Update store with WMS credentials
+    // Update store with WMS credentials and JWT token
     await store.update({
       wms_store_key,
       wms_facility_id,
       wms_SSA_login,
       wms_SSA_password,
-      is_wms_authenticated: true
+      wms_jwt_token: authResponse.token // Assuming the API returns a token in the response
     });
 
-    res.json({ success: true, message: 'Authentication successful' });
+    res.json({ 
+      success: true, 
+      message: 'Authentication successful',
+      token: authResponse.token // Optionally return the token to the client
+    });
   } catch (error) {
     console.error('WMS authentication error:', error);
     res.status(500).json({ error: 'Error during WMS authentication' });

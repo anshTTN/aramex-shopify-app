@@ -33,9 +33,9 @@ const Store = sequelize.define('Store', {
   wms_SSA_password: {
     type: DataTypes.STRING
   },
-  is_wms_authenticated: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false
+  wms_jwt_token: {
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   updatedAt: {
     type: DataTypes.DATE,

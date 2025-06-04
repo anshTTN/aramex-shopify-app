@@ -1,6 +1,7 @@
 const Store = require('../models/Store');
 const Order = require('../models/Order');
 const { GraphQLClient } = require('graphql-request');
+const crypto = require('crypto');
 
 // Keep track of processed webhooks with timestamps
 const processedWebhooks = new Map();
@@ -316,20 +317,16 @@ exports.handleOrderWebhook = async (req, res) => {
 
 // Register webhooks for a store
 exports.registerWebhooks = async (shop, accessToken) => {
-  // Check if WMS is authenticated before registering webhooks
-  const authenticated = await isWMSAuthenticated(shop);
-  if (!authenticated) {
-    console.log(`Skipping webhook registration for shop ${shop} - WMS not authenticated`);
-    return;
-  }
-
   console.log(`=== Starting Webhook Registration for shop: ${shop} ===`);
+  console.log('Access Token:', accessToken ? 'Present' : 'Missing');
   
   if (!process.env.SHOPIFY_APP_URL) {
+    console.error('SHOPIFY_APP_URL environment variable is not set');
     throw new Error('SHOPIFY_APP_URL environment variable is not set');
   }
 
   const baseUrl = process.env.SHOPIFY_APP_URL.replace(/\/$/, '');
+  console.log('Base URL for webhooks:', baseUrl);
   
   try {
     const webhooks = [
@@ -342,8 +339,15 @@ exports.registerWebhooks = async (shop, accessToken) => {
         topic: 'orders/updated',
         address: `${baseUrl}/webhooks/orders`,
         format: 'json'
+      },
+      {
+        topic: 'app/uninstalled',
+        address: `${baseUrl}/webhooks/app/uninstalled`,
+        format: 'json'
       }
     ];
+
+    console.log('Webhooks to register:', JSON.stringify(webhooks, null, 2));
 
     // First, get existing webhooks
     console.log('Fetching existing webhooks...');
@@ -364,17 +368,23 @@ exports.registerWebhooks = async (shop, accessToken) => {
     }
 
     const { webhooks: existingWebhooks } = await response.json();
-    console.log(`Found ${existingWebhooks.length} existing webhooks`);
+    console.log(`Found ${existingWebhooks.length} existing webhooks:`, JSON.stringify(existingWebhooks, null, 2));
 
     // Delete existing webhooks
     for (const webhook of existingWebhooks) {
-      console.log(`Deleting existing webhook: ${webhook.topic}`);
-      await fetch(`https://${shop}/admin/api/2024-01/webhooks/${webhook.id}.json`, {
+      console.log(`Deleting existing webhook: ${webhook.topic} (ID: ${webhook.id})`);
+      const deleteResponse = await fetch(`https://${shop}/admin/api/2024-01/webhooks/${webhook.id}.json`, {
         method: 'DELETE',
         headers: {
           'X-Shopify-Access-Token': accessToken
         }
       });
+      
+      if (!deleteResponse.ok) {
+        console.error(`Failed to delete webhook ${webhook.topic}:`, await deleteResponse.text());
+      } else {
+        console.log(`Successfully deleted webhook: ${webhook.topic}`);
+      }
     }
 
     // Register new webhooks
@@ -392,10 +402,14 @@ exports.registerWebhooks = async (shop, accessToken) => {
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Failed to register webhook ${webhook.topic}:`, errorText);
+          console.error(`Failed to register webhook ${webhook.topic}:`, {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          });
         } else {
           const result = await response.json();
-          console.log(`Successfully registered webhook: ${webhook.topic}`, result);
+          console.log(`Successfully registered webhook: ${webhook.topic}`, JSON.stringify(result, null, 2));
         }
       } catch (error) {
         console.error(`Error registering webhook ${webhook.topic}:`, error);
@@ -406,5 +420,48 @@ exports.registerWebhooks = async (shop, accessToken) => {
   } catch (error) {
     console.error('Error in webhook registration:', error);
     throw error;
+  }
+};
+
+// Handle app uninstall webhook
+exports.handleAppUninstalled = async (req, res) => {
+  try {
+    const { topic, shop, data } = req.webhookData;
+    console.log('=== Processing App Uninstall Webhook ===');
+    console.log('Webhook Data:', {
+      topic,
+      shop,
+      data: JSON.stringify(data, null, 2)
+    });
+    console.log('Request Headers:', JSON.stringify(req.headers, null, 2));
+
+    const store = await Store.findOne({ where: { shop } });
+    if (!store) {
+      console.error(`Store not found: ${shop}`);
+      return res.status(404).send('Store not found');
+    }
+
+    console.log('Found store:', {
+      shop: store.shop,
+      hasJWT: !!store.wms_jwt_token,
+      hasStoreKey: !!store.wms_store_key
+    });
+
+    // Only clear the JWT token
+    const updateResult = await store.update({
+      wms_jwt_token: null,
+      wms_store_key: null,
+      wms_facility_id: null,
+      wms_SSA_login: null,
+      wms_SSA_password: null
+    });
+
+    console.log('Update result:', JSON.stringify(updateResult, null, 2));
+    console.log(`JWT token cleared for shop: ${shop}`);
+    res.status(200).send('JWT token cleared successfully');
+  } catch (error) {
+    console.error('App uninstall webhook error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).send('Error processing app uninstall webhook');
   }
 }; 
