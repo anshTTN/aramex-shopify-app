@@ -1,0 +1,79 @@
+const Store = require('../models/Store');
+
+exports.authenticateWMS = async (req, res) => {
+  const { shop } = req.query;
+  const { wms_store_key, wms_facility_id, wms_SSA_login, wms_SSA_password } = req.body;
+console.log(req.body,'sdfdsdsfsdfd')
+  if (!shop || !wms_store_key || !wms_facility_id || !wms_SSA_login || !wms_SSA_password) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const store = await Store.findOne({
+      where: { shop }
+    });
+
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    // Call your external API to verify authentication
+    const isAuthenticated = await verifyWMSAuthentication({
+
+        
+            "plugin_username":"",
+            "plugin_password":"",
+            "store_name":shop,
+            "store_url":`${shop}.shopify.com`,
+            "facility": wms_store_key,
+            "store_id":wms_facility_id,
+            "SSA_Login":wms_SSA_login,
+            "SSA_Password":wms_SSA_password,
+            "auth":true
+        
+    });
+
+    if (!isAuthenticated || isAuthenticated?.status==='FAILURE') {
+      return res.status(401).json({ error: 'Authentication failed! Try again.' });
+    }
+
+    // Update store with WMS credentials
+    await store.update({
+      wms_store_key,
+      wms_facility_id,
+      wms_SSA_login,
+      wms_SSA_password,
+      is_wms_authenticated: true
+    });
+
+    res.json({ success: true, message: 'Authentication successful' });
+  } catch (error) {
+    console.error('WMS authentication error:', error);
+    res.status(500).json({ error: 'Error during WMS authentication' });
+  }
+};
+
+// Helper function to verify WMS authentication with external API
+async function verifyWMSAuthentication(credentials) {
+  try {
+    const response = await fetch(process.env.WMS_AUTH_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(credentials)
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    console.log(data);
+    return data;
+    // return data.authenticated === true;
+  } catch (error) {
+    console.error('WMS API error:', error);
+    return false;
+  }
+} 
