@@ -21,7 +21,7 @@ This Node.js application is a public Shopify app that can be installed by any Sh
    ```
    SHOPIFY_API_KEY=your_api_key
    SHOPIFY_API_SECRET=your_api_secret
-   APP_URL=your_app_url
+   SHOPIFY_APP_URL=your_SHOPIFY_APP_URL
    MONGODB_URI=your_mongodb_connection_string
    PORT=3000
    ```
@@ -71,7 +71,7 @@ Make sure to:
 To test the app locally:
 1. Use a tool like ngrok to create a secure tunnel to your local server
 2. Update your app's URL in the Shopify Partner dashboard to point to your ngrok URL
-3. Update the APP_URL in your .env file to match your ngrok URL
+3. Update the SHOPIFY_APP_URL in your .env file to match your ngrok URL
 
 ## Support
 

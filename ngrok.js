@@ -13,7 +13,7 @@ async function startNgrok() {
 
     console.log('\n=== Ngrok Tunnel is Running! ===');
     console.log('Your public URL is:', url);
-    console.log('Use this URL in your .env file as APP_URL');
+    console.log('Use this URL in your .env file as SHOPIFY_APP_URL');
     console.log('\nKeep this terminal window open while testing.');
     console.log('Press Ctrl+C to stop the tunnel.\n');
 

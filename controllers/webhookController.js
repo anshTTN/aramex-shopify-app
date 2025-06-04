@@ -325,11 +325,11 @@ exports.registerWebhooks = async (shop, accessToken) => {
 
   console.log(`=== Starting Webhook Registration for shop: ${shop} ===`);
   
-  if (!process.env.APP_URL) {
-    throw new Error('APP_URL environment variable is not set');
+  if (!process.env.SHOPIFY_APP_URL) {
+    throw new Error('SHOPIFY_APP_URL environment variable is not set');
   }
 
-  const baseUrl = process.env.APP_URL.replace(/\/$/, '');
+  const baseUrl = process.env.SHOPIFY_APP_URL.replace(/\/$/, '');
   
   try {
     const webhooks = [

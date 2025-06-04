@@ -73,6 +73,6 @@ app.use((req, res) => {
 // Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
-  console.log(`Auth URL: ${process.env.APP_URL}/auth`);
+  console.log(`Auth URL: ${process.env.SHOPIFY_APP_URL}/auth`);
   initializeApp();
 }); 
