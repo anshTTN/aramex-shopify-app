@@ -64,7 +64,7 @@ async function verifyWMSAuthentication(credentials) {
       },
       body: JSON.stringify(credentials)
     });
-
+console.log(response)
     if (!response.ok) {
       return false;
     }
