@@ -58,6 +58,7 @@ console.log(req.body,'sdfdsdsfsdfd')
 async function verifyWMSAuthentication(credentials) {
   try {
     console.log(credentials,'fsfsdfdsff')
+    console.log(process.env.WMS_AUTH_API_URL)
     const response = await fetch(process.env.WMS_AUTH_API_URL, {
       method: 'POST',
       headers: {
@@ -65,6 +66,7 @@ async function verifyWMSAuthentication(credentials) {
       },
       body: JSON.stringify(credentials)
     });
+    console.log(process.env.WMS_AUTH_API_URL,'fdsfds')
 
     if (!response.ok) {
       return false;
