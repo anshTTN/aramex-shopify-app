@@ -14,6 +14,7 @@ exports.appProxy = async (req, res) => {
       where: { shop },
       attributes: ['wms_jwt_token', 'accessToken']
     });
+    console.log(store,'fffffffffffffffffff')
 
     if (!store) {
       console.error('Store not found:', shop);

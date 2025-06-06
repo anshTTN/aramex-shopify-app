@@ -8,7 +8,6 @@ function normalizeShopUrl(shop) {
 
 function generateShopifyAuthUrl(shop, nonce) {
   const scopes = 'read_products,write_products,read_orders,read_customers';
-  console.log(shop,"  nn",nonce,"      nnnn         +",process.env.SHOPIFY_APP_URL)
   const baseUrl = process.env.SHOPIFY_APP_URL.replace(/\/$/, '');
   const redirectUri = `${baseUrl}/auth/callback`;
   const state = nonce;

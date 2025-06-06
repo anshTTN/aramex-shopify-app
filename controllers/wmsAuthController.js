@@ -57,14 +57,15 @@ console.log(req.body,'sdfdsdsfsdfd')
 // Helper function to verify WMS authentication with external API
 async function verifyWMSAuthentication(credentials) {
   try {
-    const response = await fetch('http://23.20.82.222:8000/orders/wms/inquiry_stock', {
+    console.log(credentials,'fsfsdfdsff')
+    const response = await fetch(process.env.WMS_AUTH_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(credentials)
     });
-console.log(response)
+
     if (!response.ok) {
       return false;
     }

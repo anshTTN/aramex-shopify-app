@@ -7,6 +7,7 @@ const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const wmsAuthRoutes = require('./routes/wmsAuthRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 const appProxyController = require('./controllers/appProxyController');
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/auth', authRoutes);
 app.use('/api', productRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/wms-auth', wmsAuthRoutes);
+app.use('/', orderRoutes);
 
 // App proxy routes
 app.get('/app-proxy', appProxyController.appProxy);
