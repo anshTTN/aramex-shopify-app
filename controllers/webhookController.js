@@ -79,6 +79,12 @@ const fetchAndSaveOrder = async (shop, accessToken, orderId) => {
               taxLines {
                 rate
                 title
+                price
+                priceSet {
+                  shopMoney {
+                    amount
+                  }
+                }
               }
               variant {
                 sku
@@ -113,6 +119,17 @@ const fetchAndSaveOrder = async (shop, accessToken, orderId) => {
     const orderData = await client.request(orderQuery);
     const order = orderData.order;
 
+    console.log(`Fetching order data for order data ${order.lineItems}`);
+
+    {order.lineItems.edges.map((e,i)=>{
+      console.log(e,'orderlineITemData'+i);
+      console.log(e.node.taxLines,'orderlineITemData'+i);
+      // console.log(e.taxLines,'orderlineITemData'+i);
+      e.node.taxLines?.map((t)=>{
+        console.log(t,'tax data')
+      })
+    })}
+
     // Determine paymentType
     let paymentType = "Prepaid";
     if (
@@ -124,7 +141,7 @@ const fetchAndSaveOrder = async (shop, accessToken, orderId) => {
 
     // Transform Shopify order data to match our new structure
     const orderDataToSave = {
-      orderNumber: order.name,
+      orderNumber: order.id.split('/').pop(),
       FreightChargeAmount: order.totalShippingPrice || null,
       dateTime: order.createdAt,
       b_address: {
@@ -167,9 +184,10 @@ const fetchAndSaveOrder = async (shop, accessToken, orderId) => {
       cts_service: '',
       cts_value: '',
       country: order.shippingAddress?.country || "IN",
-      facility: "WMWHSE2",
-      store_key: 'WOOCOMTEST',
-      store_notes: order.note || "Test order",
+      // facility: "WMWHSE2",
+      plugin_store_name: shop,
+      plugin_domain:'https://09b4-61-12-91-218.ngrok-free.app',
+      store_notes: order.note || "",
       orderItems: order.lineItems.edges
         .filter(edge => {
           const tags = edge.node.variant?.product?.tags || [];
@@ -181,25 +199,33 @@ const fetchAndSaveOrder = async (shop, accessToken, orderId) => {
           sku: edge.node.variant?.sku || edge.node.variant?.product?.variants?.edges[0]?.node?.sku || "",
           unit_price: parseFloat(edge.node.variant?.price || 0),
           title: edge.node.title || "",
-          tax_rate: parseFloat(edge.node.taxRate || 1)
+          tax_rate: edge.node.taxLines && edge.node.taxLines.length > 0 ? 
+            parseFloat(edge.node.taxLines[0].price || 0) : 0
         }))
-    };
-console.log(JSON.stringify(orderDataToSave),'sdfdsdsgsdfsdfsd');
-    // console.log(`Saving order data for order ${orderId}...`);
+    }; 
+    
     await Order.upsert(orderDataToSave, {
       where: {
         orderNumber: order.name,
-        store_key: shop
+        shop: shop
       }
     });
+    delete orderDataToSave.shop;
 
     // Send order data to external API
     try {
       console.log('Sending order data to external API...');
+      const store = await Store.findOne({ where: { shop } });
+      if (!store || !store.wms_jwt_token) {
+        console.error('Store not found or WMS not authenticated');
+        throw new Error('Store not found or WMS not authenticated');
+      }
+
       const response = await fetch('http://23.20.82.222:8000/orders', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${store.wms_jwt_token}`
         },
         body: JSON.stringify(orderDataToSave)
       });
@@ -236,10 +262,14 @@ exports.syncAllOrders = async (shop, accessToken) => {
     let hasNextPage = true;
     let cursor = null;
     let totalOrders = 0;
+    const BATCH_SIZE = 250; // Increased batch size for better performance
+    const MAX_CONCURRENT_BATCHES = 5; // Number of parallel batches to process
+    let activeBatches = 0;
+    let pendingOrders = [];
 
     while (hasNextPage) {
       const ordersQuery = `{
-        orders(first: 50${cursor ? `, after: "${cursor}"` : ''}) {
+        orders(first: ${BATCH_SIZE}${cursor ? `, after: "${cursor}"` : ''}) {
           edges {
             node {
               id
@@ -255,18 +285,37 @@ exports.syncAllOrders = async (shop, accessToken) => {
       const result = await client.request(ordersQuery);
       const orders = result.orders;
 
-      console.log(orders,'sfsdfsfsfsd')
+      // Add orders to pending queue
+      pendingOrders.push(...orders.edges.map(edge => edge.node.id.split('/').pop()));
 
-      for (const edge of orders.edges) {
-        const orderId = edge.node.id.split('/').pop();
-        await fetchAndSaveOrder(shop, accessToken, orderId);
-        totalOrders++;
+      // Process orders in parallel batches
+      while (pendingOrders.length > 0 && activeBatches < MAX_CONCURRENT_BATCHES) {
+        const batchOrders = pendingOrders.splice(0, BATCH_SIZE);
+        activeBatches++;
+
+        // Process batch in parallel
+        Promise.all(batchOrders.map(orderId => 
+          fetchAndSaveOrder(shop, accessToken, orderId)
+            .catch(error => {
+              console.error(`Error processing order ${orderId}:`, error);
+              return null; // Continue with other orders even if one fails
+            })
+        )).then(() => {
+          activeBatches--;
+          totalOrders += batchOrders.length;
+          console.log(`Processed ${totalOrders} orders so far...`);
+        });
       }
 
       hasNextPage = orders.pageInfo.hasNextPage;
       if (hasNextPage) {
         cursor = orders.edges[orders.edges.length - 1].cursor;
       }
+    }
+
+    // Wait for any remaining batches to complete
+    while (activeBatches > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     console.log(`=== Order Sync Complete. Processed ${totalOrders} orders ===`);
@@ -286,13 +335,13 @@ exports.handleOrderWebhook = async (req, res) => {
     console.log('Shop:', shop);
     console.log('Order ID:', data.id);
 
-    // Create a unique webhook ID using shop, topic, and order ID
-    const webhookId = `${shop}-${topic}-${data.id}`;
+    // Create a unique webhook ID using shop and order ID only (not including topic)
+    const webhookId = `${shop}-${data.id}`;
     
     // Check if this webhook was recently processed
     if (processedWebhooks.has(webhookId)) {
-      console.log(`Webhook already processed: ${webhookId}`);
-      return res.status(200).send('Webhook already processed');
+      console.log(`Order ${data.id} already processed recently: ${webhookId}`);
+      return res.status(200).send('Order already processed');
     }
 
     // Add webhook to processed set with timestamp
@@ -304,9 +353,8 @@ exports.handleOrderWebhook = async (req, res) => {
       return res.status(404).send('Store not found');
     }
 
-    if (topic === 'orders/create' || topic === 'orders/updated') {
-      await fetchAndSaveOrder(shop, store.accessToken, data.id);
-    }
+    // Process both create and update events
+    await fetchAndSaveOrder(shop, store.accessToken, data.id);
 
     res.status(200).send('Webhook processed successfully');
   } catch (error) {

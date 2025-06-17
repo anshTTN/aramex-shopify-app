@@ -67,11 +67,15 @@ const Order = sequelize.define('Order', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  facility: {
+  // facility: {
+  //   type: DataTypes.STRING,
+  //   allowNull: false
+  // },
+  plugin_store_name: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  store_key: {
+  plugin_domain: {
     type: DataTypes.STRING,
     allowNull: false
   },
@@ -89,7 +93,7 @@ const Order = sequelize.define('Order', {
   indexes: [
     {
       unique: true,
-      fields: ['orderNumber', 'store_key']
+      fields: ['orderNumber', 'plugin_store_name']
     }
   ]
 });

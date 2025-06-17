@@ -21,20 +21,16 @@ const Store = sequelize.define('Store', {
   nonce: {
     type: DataTypes.STRING
   },
-  wms_store_key: {
-    type: DataTypes.STRING
-  },
-  wms_facility_id: {
-    type: DataTypes.STRING
-  },
-  wms_SSA_login: {
-    type: DataTypes.STRING
-  },
-  wms_SSA_password: {
-    type: DataTypes.STRING
-  },
   wms_jwt_token: {
     type: DataTypes.TEXT,
+    allowNull: true
+  },
+  facility: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  storerkey: {
+    type: DataTypes.STRING,
     allowNull: true
   },
   updatedAt: {

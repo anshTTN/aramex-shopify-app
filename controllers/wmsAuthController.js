@@ -1,4 +1,5 @@
 const Store = require('../models/Store');
+const webhookController = require('./webhookController');
 
 exports.authenticateWMS = async (req, res) => {
   const { shop } = req.query;
@@ -43,6 +44,16 @@ console.log(req.body,'sdfdsdsfsdfd')
       wms_jwt_token: authResponse.token // Assuming the API returns a token in the response
     });
 
+    // Trigger order sync after successful WMS authentication
+    try {
+      console.log('Starting order sync after WMS authentication...');
+      await webhookController.syncAllOrders(shop, store.accessToken);
+      console.log('Order sync completed successfully');
+    } catch (syncError) {
+      console.error('Error during order sync:', syncError);
+      // Don't fail the authentication response if sync fails
+    }
+
     res.json({ 
       success: true, 
       message: 'Authentication successful',
@@ -51,6 +62,38 @@ console.log(req.body,'sdfdsdsfsdfd')
   } catch (error) {
     console.error('WMS authentication error:', error);
     res.status(500).json({ error: 'Error during WMS authentication' });
+  }
+};
+
+// Add new reset function
+exports.resetWMS = async (req, res) => {
+  const { shop } = req.query;
+  
+  if (!shop) {
+    return res.status(400).json({ error: 'Missing shop parameter' });
+  }
+
+  try {
+    const store = await Store.findOne({
+      where: { shop }
+    });
+
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    // Clear WMS credentials and token
+    await store.update({
+      wms_jwt_token: null,
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'WMS credentials reset successfully'
+    });
+  } catch (error) {
+    console.error('WMS reset error:', error);
+    res.status(500).json({ error: 'Error resetting WMS credentials' });
   }
 };
 
@@ -73,6 +116,9 @@ async function verifyWMSAuthentication(credentials) {
     }
 
     const data = await response.json();
+    // const data={
+    //   token:"ffffff"
+    // }
     console.log(data);
     return data;
     // return data.authenticated === true;

@@ -1,13 +1,10 @@
 const crypto = require('crypto');
 const Store = require('../models/Store');
 const webhookController = require('./webhookController');
-
-function normalizeShopUrl(shop) {
-  return shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
-}
+const {normalizeShopUrl}= require("../utils/functions")
 
 function generateShopifyAuthUrl(shop, nonce) {
-  const scopes = 'read_products,write_products,read_orders,read_customers';
+  const scopes = 'read_products,write_products,read_orders,read_customers,write_merchant_managed_fulfillment_orders,write_orders';
   const baseUrl = process.env.SHOPIFY_APP_URL.replace(/\/$/, '');
   const redirectUri = `${baseUrl}/auth/callback`;
   const state = nonce;

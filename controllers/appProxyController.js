@@ -50,7 +50,7 @@ exports.appProxy = async (req, res) => {
                         <h1 style="font-size: 22px; margin-bottom: 20px;">Aramex Unified Portal Login</h1>
                         <div id="authMessage"></div>
                         <form id="wmsAuthForm">
-                            <input type="hidden" name="shop" value="${shop}" />
+                            <input type="hidden" name="shop" value="${shop}">
                             <div class="col" style="margin-bottom: 15px;">
                                 <label for="wms_store_key" class="required">Store ID</label><br>
                                 <input type="text" id="wms_store_key" name="wms_store_key" placeholder="Store ID here" required style="width: 100%;" />
@@ -83,9 +83,11 @@ exports.appProxy = async (req, res) => {
                   <div class="Polaris-Card">
                     <div class="Polaris-Card__Section">
                       <p>WMS is successfully authenticated!</p>
-                      <a href=http://23.20.82.222:3000/login?token=${encodeURIComponent(store.wms_jwt_token)}" target="_blank>
-                      <button id="unifiedPortal" class="Polaris-Button Polaris-Button--primary" onCLick="openUnifiedPortal()">Open Unified Portal</button>
-                    </a></div>
+                      <a href="http://23.20.82.222:3000/login?token=${encodeURIComponent(store.wms_jwt_token)}" target="_blank">
+                        <button id="unifiedPortal" class="Polaris-Button Polaris-Button--primary" style="margin-right: 10px;">Open Unified Portal</button>
+                      </a>
+                      <button id="resetWMS" class="Polaris-Button Polaris-Button--destructive" onclick="resetWMSAuth()">Reset Login</button>
+                    </div>
                   </div>
                 `}
           </div>
@@ -98,11 +100,8 @@ exports.appProxy = async (req, res) => {
 
             const client = createAppBridgeClient(app);
 
-
-
-
             // Handle WMS authentication form submission
-             function formSubmit() {
+            function formSubmit() {
               const wmsAuthForm = document.getElementById('wmsAuthForm');
               if (wmsAuthForm) {
                 console.log('Form found, adding submit listener');
@@ -155,7 +154,29 @@ exports.appProxy = async (req, res) => {
               } else {
                 console.log('Form not found');
               }
-            };
+            }
+
+            // Handle WMS reset
+            async function resetWMSAuth() {
+              try {
+                const response = await fetch('/wms-auth/reset?shop=' + encodeURIComponent('${shop}'), {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                  // Redirect to WMS login page
+                  window.location.href = '/app-proxy?shop=' + encodeURIComponent('${shop}');
+                }
+              } catch (error) {
+                console.error('Reset error:', error);
+              }
+            }
 
             // Handle product sync button
             const syncButton = document.getElementById('syncProducts');
